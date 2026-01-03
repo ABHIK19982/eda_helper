@@ -3,7 +3,10 @@ from typing import TextIO, Union
 import nbformat as nbf
 import json
 from utils.DataModel import DataFile
+from utils.exceptions.custom_exceptions import FileIdNotFoundError, FileAlreadyExistsError
 from utils.notebook_template import *
+from sqlalchemy import create_engine, text
+from sqlalchemy import URL
 
 
 def read_config(file_path: Union[str, TextIO]):
@@ -41,17 +44,88 @@ def create_notebook(dt_file, nb_prefix):
     print('notebook write complete ')
 
 
+def read_files_from_store_by_fileid(file_id: int):
+    config = read_config('config/app_conf.ini')
+    url_object = URL.create(
+        "mysql",
+        username=config.get('DATABASE', 'username'),
+        password=config.get('DATABASE', 'password'),  # plain (unescaped) text
+        host=config.get('DATABASE', 'host'),
+        database=config.get('DATABASE', 'database'),
+    )
+    with create_engine(url = url_object).connect() as conn:
+        result = conn.execute(text(f"select * from {config.get('DATABASE','file_store_name')} where file_id = :file_id"),
+                     [{"file_id" : file_id}])
+
+    if result.rowcount == 0:
+        raise FileIdNotFoundError(file_id)
+    else:
+        res = list(result.mappings())[0]
+        return DataFile.model_validate(res , by_name = True)
+
+def check_file_id_exist(filename : str):
+    config = read_config('config/app_conf.ini')
+    url_object = URL.create(
+        "mysql",
+        username=config.get('DATABASE', 'username'),
+        password=config.get('DATABASE', 'password'),  # plain (unescaped) text
+        host=config.get('DATABASE', 'host'),
+        database=config.get('DATABASE', 'database'),
+    )
+    with create_engine(url=url_object).connect() as conn:
+        result = conn.execute(
+            text(f"select count(*) from {config.get('DATABASE', 'file_store_name')} where filename = :filename"),
+            [{"filename": filename.lower()}]).first()
+
+    return bool(result.tuple()[0])
+
+def get_highest_file_id():
+    config = read_config('config/app_conf.ini')
+    url_object = URL.create(
+        "mysql",
+        username=config.get('DATABASE', 'username'),
+        password=config.get('DATABASE', 'password'),
+        host=config.get('DATABASE', 'host'),
+        database=config.get('DATABASE', 'database'),
+    )
+    with create_engine(url=url_object).connect() as conn:
+        result = conn.execute(
+            text(f"select max(file_id) from {config.get('DATABASE', 'file_store_name')}")).first().tuple()[0]
+    print(result)
+    return result if result is not None else 0
+
 def read_files_from_store():
     config = read_config('config/app_conf.ini')
-    files = {}
-    j_data = json.load(open(config.get('STORE', 'store_loc'), 'r'))
-    for file_id in j_data.keys():
-        files[int(file_id)] = DataFile.model_validate_json(json.dumps(j_data[file_id]))
-    return files
+    url_object = URL.create(
+        "mysql",
+        username=config.get('DATABASE', 'username'),
+        password=config.get('DATABASE', 'password'),  # plain (unescaped) text
+        host=config.get('DATABASE', 'host'),
+        database=config.get('DATABASE', 'database'),
+    )
+    with create_engine(url=url_object).connect() as conn:
+        result = conn.execute(text(f"select * from {config.get('DATABASE', 'file_store_name')}"))
+    return {res.file_id: DataFile.model_validate(res, by_name=True) for res in result.mappings()}
 
-
-def write_files_into_store(files: dict[int, DataFile]):
+def write_files_into_store(file_id:int, dfile:DataFile):
     config = read_config('config/app_conf.ini')
-    file_dict = {k: v.model_dump(by_alias=True) for k, v in files.items()}
-    with open(config.get('STORE', 'store_loc'), 'w') as f:
-        json.dump(file_dict, f, default=lambda o: o.__dict__, indent=4)
+    url_object = URL.create(
+        "mysql",
+        username=config.get('DATABASE', 'username'),
+        password=config.get('DATABASE', 'password'),  # plain (unescaped) text
+        host=config.get('DATABASE', 'host'),
+        database=config.get('DATABASE', 'database'),
+    )
+    check_file = check_file_id_exist(dfile.filename)
+    if check_file :
+        raise FileAlreadyExistsError(file_id)
+
+    with create_engine(url=url_object).connect() as conn:
+        result = conn.execute(
+            text(f"insert into {config.get('DATABASE', 'file_store_name')} values (:fileid, :filename, :filetype, "
+                 f":filepath)"),
+            [{"fileid": file_id,
+              "filename": dfile.filename,
+              "filetype": dfile.file_type,
+              "filepath": dfile.file_path}])
+        conn.commit()

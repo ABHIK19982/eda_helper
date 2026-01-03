@@ -36,3 +36,11 @@ class FileIdNotFoundError(Exception):
 
     def __repr__(self):
         return f"The file ID provided is not found - {self.__file_id}"
+
+class FileAlreadyExistsError(Exception):
+    def __init__(self, file_name):
+        super().__init__(f"File already exists: {file_name}")
+        self.__file_name = file_name
+
+    def __repr__(self):
+        return f"The file ID provided already exists - {self.__file_name}"

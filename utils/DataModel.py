@@ -12,7 +12,7 @@ class DataFile(BaseModel):
                            description='The path of the file provided')
 
 
-class DataModel():
+class DataModel:
     __file_size__: Optional[int] = Field(default=None, alias='Data file size',
                                          description='The size of the file provided')
     __raw_file_content__: Optional[Union[int, str]] = Field(default=None, alias='Data file content',
