@@ -2,7 +2,7 @@ from utils.DataModel import DataModel
 from utils.helpers import read_files_from_store_by_fileid, create_notebook
 from fastapi.responses import JSONResponse
 
-def create_notebook_by_id(file_id: int, notebook_prefix: str):
+def create_notebook_by_id(file_id: str, notebook_prefix: str = None):
     try:
         dfile = read_files_from_store_by_fileid(file_id)
         datamodel = DataModel(file=dfile)

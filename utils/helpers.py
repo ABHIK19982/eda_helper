@@ -44,7 +44,7 @@ def create_notebook(dt_file, nb_prefix):
     print('notebook write complete ')
 
 
-def read_files_from_store_by_fileid(file_id: int):
+def read_files_from_store_by_fileid(file_id: str):
     config = read_config('config/app_conf.ini')
     url_object = URL.create(
         "mysql",
@@ -107,7 +107,7 @@ def read_files_from_store():
         result = conn.execute(text(f"select * from {config.get('DATABASE', 'file_store_name')}"))
     return {res.file_id: DataFile.model_validate(res, by_name=True) for res in result.mappings()}
 
-def write_files_into_store(file_id:int, dfile:DataFile):
+def write_files_into_store(file_id:str, dfile:DataFile):
     config = read_config('config/app_conf.ini')
     url_object = URL.create(
         "mysql",

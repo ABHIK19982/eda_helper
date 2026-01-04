@@ -2,7 +2,7 @@ from utils.DataModel import DataModel
 from utils.helpers import read_files_from_store_by_fileid
 from fastapi.responses import JSONResponse
 
-def get_columns_by_fileid(file_id: int):
+def get_columns_by_fileid(file_id: str):
     try:
         dfile = read_files_from_store_by_fileid(file_id)
         datamodel = DataModel(file=dfile)
